@@ -16,7 +16,7 @@ export const announcements = [
 - [本地部署教程](https://www.bilibili.com/video/BV1AYKgzAEne)
 
 ### 💡 快速开始
-1. 选择 **91写作官方API** (推荐新手)
+1. 选择 **Plume 小说官方API** (推荐新手)
 2. 购买API密钥并输入
 3. 选择合适的AI模型
 

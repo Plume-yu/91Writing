@@ -139,17 +139,17 @@
             </template>
             
             <div class="about-content">
-              <div class="app-info">
-                <div class="app-logo">
-                  <h1>📚 91写作</h1>
+                <div class="app-info">
+                  <div class="app-logo">
+                    <h1>📚 Plume 小说</h1>
+                  </div>
+                  <div class="app-details">
+                    <p><strong>版本：</strong>v0.7.0</p>
+                    <p><strong>更新时间：</strong>2025 年 7 月 9 日</p>
+                    <p><strong>开发者：</strong>Plume 团队</p>
+                    <p><strong>描述：</strong>基于 AI 技术的智能小说创作辅助工具，提供全方位的写作支持和创作灵感</p>
+                  </div>
                 </div>
-                <div class="app-details">
-                  <p><strong>版本：</strong>v0.7.0</p>
-                  <p><strong>更新时间：</strong>2025年7月9日</p>
-                  <p><strong>开发者：</strong>91写作团队</p>
-                  <p><strong>描述：</strong>基于AI技术的智能小说创作辅助工具，提供全方位的写作支持和创作灵感</p>
-                </div>
-              </div>
               
               <el-divider />
               
@@ -406,7 +406,7 @@ const exportAllData = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `91写作-完整备份-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `Plume小说-完整备份-${new Date().toISOString().split('T')[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
   
@@ -424,7 +424,7 @@ const exportNovels = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `91写作-小说数据-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `Plume小说-小说数据-${new Date().toISOString().split('T')[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
   
@@ -442,7 +442,7 @@ const exportPrompts = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `91写作-提示词库-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `Plume小说-提示词库-${new Date().toISOString().split('T')[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
   
@@ -478,7 +478,7 @@ const exportSettings = () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `91写作-系统设置-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `Plume小说-系统设置-${new Date().toISOString().split('T')[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
   

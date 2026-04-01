@@ -47,6 +47,26 @@
           @worldview-action="handleWorldSettingAction"
         />
 
+        <!-- 地形管理面板 -->
+        <WriterTerrainPanel
+          v-show="activeTab === 'terrain'"
+          :terrains="terrains"
+          @add-terrain="addTerrain"
+          @batch-generate="showTerrainBatchGenerateDialog"
+          @edit-terrain="editTerrain"
+          @terrain-action="handleTerrainAction"
+        />
+
+        <!-- 种族管理面板 -->
+        <WriterRacePanel
+          v-show="activeTab === 'races'"
+          :races="races"
+          @add-race="addRace"
+          @batch-generate="showRaceBatchGenerateDialog"
+          @edit-race="editRace"
+          @race-action="handleRaceAction"
+        />
+
         <!-- 语料库面板 -->
         <WriterCorpusPanel
           v-show="activeTab === 'corpus'"
@@ -97,6 +117,8 @@ import WriterTabsBar from '@/components/writer/WriterTabsBar.vue'
 import WriterChapterPanel from '@/components/writer/WriterChapterPanel.vue'
 import WriterCharacterPanel from '@/components/writer/WriterCharacterPanel.vue'
 import WriterWorldviewPanel from '@/components/writer/WriterWorldviewPanel.vue'
+import WriterTerrainPanel from '@/components/writer/WriterTerrainPanel.vue'
+import WriterRacePanel from '@/components/writer/WriterRacePanel.vue'
 import WriterCorpusPanel from '@/components/writer/WriterCorpusPanel.vue'
 import WriterEventPanel from '@/components/writer/WriterEventPanel.vue'
 import WriterEditor from '@/components/writer/WriterEditor.vue'
@@ -111,6 +133,8 @@ const currentChapter = ref(null)
 const chapters = ref([])
 const characters = ref([])
 const worldSettings = ref([])
+const terrains = ref([])
+const races = ref([])
 const corpusData = ref([])
 const events = ref([])
 const content = ref('')
@@ -185,6 +209,40 @@ const editWorldSetting = (setting) => {
 
 const handleWorldSettingAction = (action, setting) => {
   console.log('世界观操作:', action, setting)
+}
+
+// 地形相关方法
+const addTerrain = () => {
+  console.log('添加地形')
+}
+
+const showTerrainBatchGenerateDialog = () => {
+  console.log('显示地形批量生成对话框')
+}
+
+const editTerrain = (terrain) => {
+  console.log('编辑地形', terrain)
+}
+
+const handleTerrainAction = (action, terrain) => {
+  console.log('地形操作:', action, terrain)
+}
+
+// 种族相关方法
+const addRace = () => {
+  console.log('添加种族')
+}
+
+const showRaceBatchGenerateDialog = () => {
+  console.log('显示种族批量生成对话框')
+}
+
+const editRace = (race) => {
+  console.log('编辑种族', race)
+}
+
+const handleRaceAction = (action, race) => {
+  console.log('种族操作:', action, race)
 }
 
 const addCorpus = () => {

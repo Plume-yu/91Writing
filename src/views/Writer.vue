@@ -17,6 +17,10 @@
         <el-tab-pane label="📝 编辑" name="editor"></el-tab-pane>
         <el-tab-pane label="👥 人物" name="characters"></el-tab-pane>
         <el-tab-pane label="🌍 世界观" name="worldview"></el-tab-pane>
+        <el-tab-pane label="🏔️ 地形" name="terrain"></el-tab-pane>
+        <el-tab-pane label="🧙 种族" name="races"></el-tab-pane>
+        <el-tab-pane label="🏰 势力" name="factions"></el-tab-pane>
+        <el-tab-pane label="🎒 物品" name="items"></el-tab-pane>
         <el-tab-pane label="📚 语料库" name="corpus"></el-tab-pane>
         <el-tab-pane label="📊 事件线" name="events"></el-tab-pane>
       </el-tabs>
@@ -370,6 +374,233 @@
             </div>
           </el-card>
         </div>
+
+        <!-- 地形面板 -->
+        <div v-show="activeTab === 'terrain'" class="panel-content">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>🏔️ 地形管理</span>
+                <el-dropdown @command="handleTerrainCommand">
+                  <el-button size="small" type="primary">
+                    <el-icon><Plus /></el-icon>
+                    新增地形 <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="manual">手动创建</el-dropdown-item>
+                      <el-dropdown-item command="ai-batch">AI批量生成</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </template>
+            
+            <div class="terrain-list">
+              <div 
+                v-for="terrain in terrainData" 
+                :key="terrain.id"
+                class="terrain-item"
+                @click="selectTerrain(terrain)"
+              >
+                <div class="terrain-info">
+                  <h4>{{ terrain.name }}</h4>
+                  <p class="terrain-desc">{{ terrain.description?.length > 50 ? terrain.description.substring(0, 50) + '...' : terrain.description }}</p>
+                  <div class="terrain-meta">
+                    <el-tag size="small">{{ terrain.type || '未知类型' }}</el-tag>
+                  </div>
+                </div>
+                <div class="terrain-actions">
+                  <el-dropdown @command="(cmd) => handleTerrainAction(cmd, terrain)">
+                    <el-button size="small" type="text">
+                      <el-icon><MoreFilled /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+              
+              <div v-if="terrainData.length === 0" class="empty-state">
+                <p>暂无地形数据</p>
+                <el-button size="small" type="primary" @click="addTerrain">
+                  手动创建地形
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </div>
+
+        <!-- 种族面板 -->
+        <div v-show="activeTab === 'races'" class="panel-content">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>🧙 种族管理</span>
+                <el-dropdown @command="handleRaceCommand">
+                  <el-button size="small" type="primary">
+                    <el-icon><Plus /></el-icon>
+                    新增种族 <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="manual">手动创建</el-dropdown-item>
+                      <el-dropdown-item command="ai-batch">AI批量生成</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </template>
+            
+            <div class="race-list">
+              <div 
+                v-for="race in raceData" 
+                :key="race.id"
+                class="race-item"
+                @click="selectRace(race)"
+              >
+                <div class="race-info">
+                  <h4>{{ race.name }}</h4>
+                  <p class="race-desc">{{ race.description?.length > 50 ? race.description.substring(0, 50) + '...' : race.description }}</p>
+                  <div class="race-meta">
+                    <el-tag size="small">{{ race.type || '未知类型' }}</el-tag>
+                  </div>
+                </div>
+                <div class="race-actions">
+                  <el-dropdown @command="(cmd) => handleRaceAction(cmd, race)">
+                    <el-button size="small" type="text">
+                      <el-icon><MoreFilled /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+              
+              <div v-if="raceData.length === 0" class="empty-state">
+                <p>暂无种族数据</p>
+                <el-button size="small" type="primary" @click="addRace">
+                  手动创建种族
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </div>
+
+        <!-- 势力面板 -->
+        <div v-show="activeTab === 'factions'" class="panel-content">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>🏰 势力管理</span>
+                <el-button size="small" type="primary" @click="addFaction">
+                  <el-icon><Plus /></el-icon>
+                  新增势力
+                </el-button>
+              </div>
+            </template>
+            
+            <div class="faction-list">
+              <div 
+                v-for="faction in factionData" 
+                :key="faction.id"
+                class="faction-item"
+                @click="selectFaction(faction)"
+              >
+                <div class="faction-info">
+                  <h4>{{ faction.name }}</h4>
+                  <p class="faction-desc">{{ faction.description?.length > 50 ? faction.description.substring(0, 50) + '...' : faction.description }}</p>
+                  <div class="faction-meta">
+                    <el-tag size="small">{{ faction.terrain || '未知领地' }}</el-tag>
+                    <el-tag size="small">{{ faction.race || '未知种族' }}</el-tag>
+                  </div>
+                </div>
+                <div class="faction-actions">
+                  <el-dropdown @command="(cmd) => handleFactionAction(cmd, faction)">
+                    <el-button size="small" type="text">
+                      <el-icon><MoreFilled /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+              
+              <div v-if="factionData.length === 0" class="empty-state">
+                <p>暂无势力数据</p>
+                <el-button size="small" type="primary" @click="addFaction">
+                  创建势力
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </div>
+
+        <!-- 物品面板 -->
+        <div v-show="activeTab === 'items'" class="panel-content">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>🎒 物品管理</span>
+                <el-button size="small" type="primary" @click="addItem">
+                  <el-icon><Plus /></el-icon>
+                  新增物品
+                </el-button>
+              </div>
+            </template>
+            
+            <div class="item-list">
+              <div 
+                v-for="item in itemData" 
+                :key="item.id"
+                class="item-item"
+                @click="selectItem(item)"
+              >
+                <div class="item-info">
+                  <h4>{{ item.name }}</h4>
+                  <p class="item-desc">{{ item.description?.length > 50 ? item.description.substring(0, 50) + '...' : item.description }}</p>
+                  <div class="item-meta">
+                    <el-tag :type="getItemLevelType(item.level)" size="small">
+                      等级 {{ item.level }}
+                    </el-tag>
+                  </div>
+                </div>
+                <div class="item-actions">
+                  <el-dropdown @command="(cmd) => handleItemAction(cmd, item)">
+                    <el-button size="small" type="text">
+                      <el-icon><MoreFilled /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+              
+              <div v-if="itemData.length === 0" class="empty-state">
+                <p>暂无物品数据</p>
+                <el-button size="small" type="primary" @click="addItem">
+                  创建物品
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </div>
       </div>
 
       <!-- 右侧编辑器区域 -->
@@ -440,14 +671,7 @@
 
         </el-card>
         
-        <!-- 未选择章节状态 -->
-        <el-card shadow="never" v-else>
-          <div class="empty-editor">
-            <el-icon class="empty-icon"><Document /></el-icon>
-            <p>请选择或创建一个章节开始编辑</p>
-            <el-button type="primary" @click="addNewChapter">创建第一章</el-button>
-          </div>
-        </el-card>
+
       </div>
     </div>
 
@@ -2142,31 +2366,14 @@ const novelStore = useNovelStore()
 
 // API服务实例已经在api.js中创建并导出
 
-// 检查API配置
+// 检查API配置（本地ollama不需要API密钥）
 const checkApiConfig = () => {
-  const config = apiService.getConfig()
-  if (!config.apiKey || !config.baseURL) {
-    ElMessageBox.confirm(
-      '检测到您还未配置AI API，需要先配置API密钥才能使用AI功能。是否前往配置？',
-      '需要配置API',
-      {
-        confirmButtonText: '去配置',
-        cancelButtonText: '稍后配置',
-        type: 'warning'
-      }
-    ).then(() => {
-      router.push('/config')
-    }).catch(() => {
-      // 用户选择稍后配置
-    })
-    return false
-  }
   return true
 }
 
-// 检查API配置（移除余额检查，用户使用自己的API）
+// 检查API配置（本地ollama不需要API密钥）
 const checkApiAndBalance = () => {
-  return checkApiConfig()
+  return true
 }
 
 // 响应式数据
@@ -2356,6 +2563,18 @@ const worldSettings = computed(() => novelStore.worldSettings)
 const corpusData = ref([])
 const events = ref([])
 
+// 地形、种族、势力、物品数据
+const terrainData = ref([])
+const raceData = ref([])
+const factionData = ref([])
+const itemData = ref([])
+
+// 当前选中的数据
+const currentTerrain = ref(null)
+const currentRace = ref(null)
+const currentFaction = ref(null)
+const currentItem = ref(null)
+
 
 // 对话框状态
 const showCharacterDialog = ref(false)
@@ -2420,6 +2639,56 @@ const eventForm = ref({
   chapter: '',
   time: '',
   importance: 'normal'
+})
+
+// 地形表单
+const terrainForm = ref({
+  id: null,
+  name: '',
+  type: 'village',
+  description: '',
+  hierarchy: '',
+  history: '',
+  economy: '',
+  culture: '',
+  neighbors: '',
+  landmarks: ''
+})
+
+// 种族表单
+const raceForm = ref({
+  id: null,
+  name: '',
+  type: 'human',
+  description: '',
+  appearance: '',
+  culture: '',
+  socialStructure: '',
+  abilities: '',
+  history: ''
+})
+
+// 势力表单
+const factionForm = ref({
+  id: null,
+  name: '',
+  terrain: '',
+  race: '',
+  leader: '',
+  description: '',
+  members: '',
+  territory: '',
+  history: ''
+})
+
+// 物品表单
+const itemForm = ref({
+  id: null,
+  name: '',
+  level: '1',
+  description: '',
+  attributes: '',
+  biography: ''
 })
 
 // 编辑器配置
@@ -2607,6 +2876,253 @@ const getChapterStatusText = (status) => {
     published: '发表'
   }
   return statusMap[status] || '草稿'
+}
+
+// 地形相关方法
+const selectTerrain = (terrain) => {
+  currentTerrain.value = terrain
+}
+
+const addTerrain = () => {
+  terrainForm.value = {
+    id: null,
+    name: '',
+    type: 'village',
+    description: '',
+    hierarchy: '',
+    history: '',
+    economy: '',
+    culture: '',
+    neighbors: '',
+    landmarks: ''
+  }
+  // 这里可以打开地形编辑对话框
+}
+
+const saveTerrain = () => {
+  if (!currentTerrain.value) return
+  // 保存地形数据
+  saveNovelData()
+  ElMessage.success('地形保存成功')
+}
+
+const handleTerrainCommand = (command) => {
+  switch (command) {
+    case 'manual':
+      addTerrain()
+      break
+    case 'ai-batch':
+      // 这里可以打开AI批量生成地形对话框
+      break
+  }
+}
+
+const handleTerrainAction = (command, terrain) => {
+  switch (command) {
+    case 'edit':
+      currentTerrain.value = terrain
+      break
+    case 'delete':
+      deleteTerrain(terrain)
+      break
+  }
+}
+
+const deleteTerrain = (terrain) => {
+  ElMessageBox.confirm(`确定要删除地形《${terrain.name}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(() => {
+    const index = terrainData.value.findIndex(t => t.id === terrain.id)
+    if (index > -1) {
+      terrainData.value.splice(index, 1)
+      if (currentTerrain.value?.id === terrain.id) {
+        currentTerrain.value = null
+      }
+      saveNovelData()
+      ElMessage.success('地形已删除')
+    }
+  }).catch(() => {})
+}
+
+// 种族相关方法
+const selectRace = (race) => {
+  currentRace.value = race
+}
+
+const addRace = () => {
+  raceForm.value = {
+    id: null,
+    name: '',
+    type: 'human',
+    description: '',
+    appearance: '',
+    culture: '',
+    socialStructure: '',
+    abilities: '',
+    history: ''
+  }
+  // 这里可以打开种族编辑对话框
+}
+
+const saveRace = () => {
+  if (!currentRace.value) return
+  // 保存种族数据
+  saveNovelData()
+  ElMessage.success('种族保存成功')
+}
+
+const handleRaceCommand = (command) => {
+  switch (command) {
+    case 'manual':
+      addRace()
+      break
+    case 'ai-batch':
+      // 这里可以打开AI批量生成种族对话框
+      break
+  }
+}
+
+const handleRaceAction = (command, race) => {
+  switch (command) {
+    case 'edit':
+      currentRace.value = race
+      break
+    case 'delete':
+      deleteRace(race)
+      break
+  }
+}
+
+const deleteRace = (race) => {
+  ElMessageBox.confirm(`确定要删除种族《${race.name}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(() => {
+    const index = raceData.value.findIndex(r => r.id === race.id)
+    if (index > -1) {
+      raceData.value.splice(index, 1)
+      if (currentRace.value?.id === race.id) {
+        currentRace.value = null
+      }
+      saveNovelData()
+      ElMessage.success('种族已删除')
+    }
+  }).catch(() => {})
+}
+
+// 势力相关方法
+const selectFaction = (faction) => {
+  currentFaction.value = faction
+}
+
+const addFaction = () => {
+  factionForm.value = {
+    id: null,
+    name: '',
+    terrain: '',
+    race: '',
+    leader: '',
+    description: '',
+    members: '',
+    territory: '',
+    history: ''
+  }
+  // 这里可以打开势力编辑对话框
+}
+
+const saveFaction = () => {
+  if (!currentFaction.value) return
+  // 保存势力数据
+  saveNovelData()
+  ElMessage.success('势力保存成功')
+}
+
+const handleFactionAction = (command, faction) => {
+  switch (command) {
+    case 'edit':
+      currentFaction.value = faction
+      break
+    case 'delete':
+      deleteFaction(faction)
+      break
+  }
+}
+
+const deleteFaction = (faction) => {
+  ElMessageBox.confirm(`确定要删除势力《${faction.name}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(() => {
+    const index = factionData.value.findIndex(f => f.id === faction.id)
+    if (index > -1) {
+      factionData.value.splice(index, 1)
+      if (currentFaction.value?.id === faction.id) {
+        currentFaction.value = null
+      }
+      saveNovelData()
+      ElMessage.success('势力已删除')
+    }
+  }).catch(() => {})
+}
+
+// 物品相关方法
+const selectItem = (item) => {
+  currentItem.value = item
+}
+
+const addItem = () => {
+  itemForm.value = {
+    id: null,
+    name: '',
+    level: '1',
+    description: '',
+    attributes: '',
+    biography: ''
+  }
+  // 这里可以打开物品编辑对话框
+}
+
+const saveItem = () => {
+  if (!currentItem.value) return
+  // 保存物品数据
+  saveNovelData()
+  ElMessage.success('物品保存成功')
+}
+
+const handleItemAction = (command, item) => {
+  switch (command) {
+    case 'edit':
+      currentItem.value = item
+      break
+    case 'delete':
+      deleteItem(item)
+      break
+  }
+}
+
+const deleteItem = (item) => {
+  ElMessageBox.confirm(`确定要删除物品《${item.name}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(() => {
+    const index = itemData.value.findIndex(i => i.id === item.id)
+    if (index > -1) {
+      itemData.value.splice(index, 1)
+      if (currentItem.value?.id === item.id) {
+        currentItem.value = null
+      }
+      saveNovelData()
+      ElMessage.success('物品已删除')
+    }
+  }).catch(() => {})
+}
+
+const getItemLevelType = (level) => {
+  const levelMap = {
+    '1': 'info',
+    '2': 'success',
+    '3': 'warning',
+    '4': 'danger',
+    '5': 'primary'
+  }
+  return levelMap[level] || 'info'
 }
 
 // AI生成相关方法
@@ -8727,13 +9243,13 @@ ${customPrompt}`
 }
 
 .left-panel {
-  width: 280px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 300px;
 }
 
 .editor-panel {
-  flex: 1;
-  min-width: 0;
+  flex: 2;
+  min-width: 400px;
 }
 
 .card-header {
@@ -8842,18 +9358,25 @@ ${customPrompt}`
 .chapters-list {
   max-height: calc(100vh - 190px);
   overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
 }
 
 .chapter-item {
   padding: 12px;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
-  margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
 }
 
 .chapter-item:hover {
@@ -8936,6 +9459,296 @@ ${customPrompt}`
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+/* 人物列表样式 */
+.characters-list {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
+}
+
+.character-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
+}
+
+.character-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.character-item.active {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.character-info {
+  flex: 1;
+}
+
+.character-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.character-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.4;
+}
+
+.character-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.character-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 地形列表样式 */
+.terrain-list {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
+}
+
+.terrain-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
+}
+
+.terrain-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.terrain-info {
+  flex: 1;
+}
+
+.terrain-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.terrain-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.4;
+}
+
+.terrain-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.terrain-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 种族列表样式 */
+.race-list {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
+}
+
+.race-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
+}
+
+.race-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.race-info {
+  flex: 1;
+}
+
+.race-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.race-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.4;
+}
+
+.race-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.race-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 势力列表样式 */
+.faction-list {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
+}
+
+.faction-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
+}
+
+.faction-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.faction-info {
+  flex: 1;
+}
+
+.faction-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.faction-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.4;
+}
+
+.faction-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.faction-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 物品列表样式 */
+.item-list {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px;
+}
+
+.item-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  max-width: calc(33.333% - 8px);
+}
+
+.item-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.item-info {
+  flex: 1;
+}
+
+.item-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #303133;
+}
+
+.item-info p {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.4;
+}
+
+.item-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.item-actions {
+  display: flex;
+  gap: 4px;
 }
 
 /* 现代化弹窗样式 */

@@ -573,7 +573,7 @@ const saveCustomConfig = async () => {
       ElMessage.success('自定义配置保存成功')
       localStorage.setItem('customApiConfig', JSON.stringify(customForm))
     } else {
-      ElMessage.error('API密钥验证失败，请检查配置')
+      ElMessage.error('API 连接测试失败，请检查 API 地址是否正确')
     }
   } catch (error) {
     ElMessage.error('配置保存失败：' + error.message)

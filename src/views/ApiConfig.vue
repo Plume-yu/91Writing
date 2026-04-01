@@ -88,297 +88,42 @@
             </el-button>
           </div>
         </template>
-        
-        <div class="config-tabs">
-          <el-tabs v-model="activeTab" type="border-card">
-            <el-tab-pane 
-              v-for="config in apiConfigs" 
-              :key="config.id"
-              :label="config.name"
-              :name="config.id"
+        <el-form :model="customForm" label-width="100px" size="small" class="config-form">
+          <el-form-item label="API 地址" required>
+            <el-input
+              v-model="customForm.baseURL"
+              placeholder="http://localhost:11434/api"
+              clearable
+            />
+          </el-form-item>
+          
+          <div class="template-grid">
+            <div 
+              v-for="template in presetTemplates"
+              :key="template.id"
+              class="template-card"
+              @click="applyTemplate(template)"
             >
-              <div class="config-content">
-                <!-- 基本信息 -->
-                <div class="config-section">
-                  <h4>📋 基本信息</h4>
-                  <el-row :gutter="20">
-                    <el-col :span="12">
-                      <el-form-item label="配置名称">
-                        <el-input v-model="config.name" placeholder="请输入配置名称" />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="12">
-                      <el-form-item label="模型类型">
-                        <el-select v-model="config.type" placeholder="选择模型类型">
-                          <el-option label="OpenAI GPT" value="openai" />
-                          <el-option label="Claude" value="claude" />
-                          <el-option label="文心一言" value="wenxin" />
-                          <el-option label="通义千问" value="qwen" />
-                          <el-option label="智谱AI" value="zhipu" />
-                          <el-option label="自定义" value="custom" />
-                        </el-select>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  
-                  <el-row :gutter="20">
-                    <el-col :span="24">
-                      <el-form-item label="描述">
-                        <el-input 
-                          v-model="config.description" 
-                          type="textarea" 
-                          :rows="2"
-                          placeholder="请输入配置描述"
-                        />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                </div>
-
-                <!-- 连接配置 -->
-                <div class="config-section">
-                  <h4>🔗 连接配置</h4>
-                  <el-row :gutter="20">
-                    <el-col :span="24">
-                      <el-form-item label="API地址">
-                        <el-input v-model="config.apiUrl" placeholder="请输入API地址">
-                          <template #prepend>HTTPS://</template>
-                        </el-input>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  
-                  <el-row :gutter="20">
-                    <el-col :span="24">
-                      <el-form-item label="API密钥">
-                        <el-input 
-                          v-model="config.apiKey" 
-                          type="password" 
-                          placeholder="请输入API密钥"
-                          show-password
-                        >
-                          <template #append>
-                            <el-button @click="testConnection(config)">
-                              <el-icon><Connection /></el-icon>
-                            </el-button>
-                          </template>
-                        </el-input>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  
-                  <el-row :gutter="20">
-                    <el-col :span="12">
-                      <el-form-item label="模型名称">
-                        <el-input v-model="config.model" placeholder="如：gpt-4, claude-3" />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="12">
-                      <el-form-item label="连接状态">
-                        <el-tag 
-                          :type="getStatusType(config.status)"
-                          :icon="getStatusIcon(config.status)"
-                        >
-                          {{ getStatusText(config.status) }}
-                        </el-tag>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                </div>
-
-                <!-- 模型参数 -->
-                <div class="config-section">
-                  <h4>🎛️ 模型参数</h4>
-                  <el-row :gutter="20">
-                    <el-col :span="8">
-                      <el-form-item label="温度 (Temperature)">
-                        <el-slider 
-                          v-model="config.temperature" 
-                          :min="0" 
-                          :max="2" 
-                          :step="0.1"
-                          show-input
-                        />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                      <el-form-item label="最大Token数">
-                        <div class="max-tokens-control">
-                          <el-checkbox 
-                            v-model="config.unlimitedTokens" 
-                            @change="handleUnlimitedTokensChange(config)"
-                            style="margin-bottom: 8px;"
-                          >
-                            无限制
-                          </el-checkbox>
-                          <el-input-number 
-                            v-model="config.maxTokens" 
-                            :min="1" 
-                            :max="10000000"
-                            :step="1000"
-                            :disabled="config.unlimitedTokens"
-                            placeholder="无限制"
-                          />
-                        </div>
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                      <el-form-item label="Top P">
-                        <el-slider 
-                          v-model="config.topP" 
-                          :min="0" 
-                          :max="1" 
-                          :step="0.1"
-                          show-input
-                        />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  
-                  <el-row :gutter="20">
-                    <el-col :span="8">
-                      <el-form-item label="频率惩罚">
-                        <el-slider 
-                          v-model="config.frequencyPenalty" 
-                          :min="-2" 
-                          :max="2" 
-                          :step="0.1"
-                          show-input
-                        />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                      <el-form-item label="存在惩罚">
-                        <el-slider 
-                          v-model="config.presencePenalty" 
-                          :min="-2" 
-                          :max="2" 
-                          :step="0.1"
-                          show-input
-                        />
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                      <el-form-item label="超时时间(秒)">
-                        <el-input-number 
-                          v-model="config.timeout" 
-                          :min="5" 
-                          :max="300"
-                          :step="5"
-                        />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                </div>
-
-                <!-- 高级设置 -->
-                <div class="config-section">
-                  <h4>🔧 高级设置</h4>
-                  <el-row :gutter="20">
-                    <el-col :span="12">
-                      <el-form-item>
-                        <el-checkbox v-model="config.isDefault">设为默认模型</el-checkbox>
-                      </el-form-item>
-                      <el-form-item>
-                        <el-checkbox v-model="config.enabled">启用此配置</el-checkbox>
-                      </el-form-item>
-                      <el-form-item>
-                        <el-checkbox v-model="config.streamMode">启用流式输出</el-checkbox>
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="12">
-                      <el-form-item label="重试次数">
-                        <el-input-number 
-                          v-model="config.retryCount" 
-                          :min="0" 
-                          :max="5"
-                        />
-                      </el-form-item>
-                      <el-form-item label="优先级">
-                        <el-input-number 
-                          v-model="config.priority" 
-                          :min="1" 
-                          :max="10"
-                        />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                  
-                  <el-row :gutter="20">
-                    <el-col :span="24">
-                      <el-form-item label="自定义Headers">
-                        <el-input 
-                          v-model="config.customHeaders" 
-                          type="textarea" 
-                          :rows="3"
-                          placeholder="JSON格式，如：{'User-Agent': 'MyApp/1.0'}"
-                        />
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                </div>
-
-                <!-- 操作按钮 -->
-                <div class="config-actions">
-                  <el-button @click="resetConfig(config)">重置</el-button>
-                  <el-button @click="duplicateConfig(config)">复制配置</el-button>
-                  <el-button type="warning" @click="testConnection(config)">
-                    <el-icon><Connection /></el-icon>
-                    测试连接
-                  </el-button>
-                  <el-button type="primary" @click="saveConfig(config)">
-                    <el-icon><Check /></el-icon>
-                    保存配置
-                  </el-button>
-                  <el-button 
-                    type="danger" 
-                    @click="deleteConfig(config.id)"
-                    :disabled="config.isDefault"
-                  >
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
-                </div>
+              <div class="template-icon">
+                {{ template.icon }}
               </div>
-            </el-tab-pane>
-          </el-tabs>
-        </div>
-      </el-card>
-    </div>
-
-    <!-- 预设模板 -->
-    <div class="preset-templates">
-      <el-card>
-        <template #header>
-          <h3>📦 预设模板</h3>
-        </template>
-        
-        <div class="template-grid">
-          <div 
-            v-for="template in presetTemplates"
-            :key="template.id"
-            class="template-card"
-            @click="applyTemplate(template)"
-          >
-            <div class="template-icon">
-              {{ template.icon }}
-            </div>
-            <div class="template-content">
-              <h4>{{ template.name }}</h4>
-              <p>{{ template.description }}</p>
-              <div class="template-tags">
-                <el-tag 
-                  v-for="tag in template.tags"
-                  :key="tag"
-                  size="small"
-                  type="info"
-                >
-                  {{ tag }}
-                </el-tag>
+              <div class="template-content">
+                <h4>{{ template.name }}</h4>
+                <p>{{ template.description }}</p>
+                <div class="template-tags">
+                  <el-tag 
+                    v-for="tag in template.tags"
+                    :key="tag"
+                    size="small"
+                    type="info"
+                  >
+                    {{ tag }}
+                  </el-tag>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </el-form>
       </el-card>
     </div>
 
@@ -429,18 +174,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Connection, Check, CircleCheck, Warning, Star, Plus,
   Delete, Download, Upload, RefreshLeft
 } from '@element-plus/icons-vue'
+import { useNovelStore } from '../stores/novel.js'
+
+const store = useNovelStore()
 
 // 响应式数据
 const activeTab = ref('1')
-
-// 预设的API配置示例数据 - 清空为用户自行配置
 const apiConfigs = ref([])
+const customModels = ref([])
+const validating = ref(false)
 
 // 预设模板
 const presetTemplates = ref([
@@ -469,7 +217,7 @@ const presetTemplates = ref([
       apiUrl: 'api.openai.com/v1/chat/completions',
       model: 'gpt-3.5-turbo',
       temperature: 0.7,
-              maxTokens: null // 移除token限制
+      maxTokens: null // 移除token限制
     }
   },
   {
@@ -530,13 +278,47 @@ const presetTemplates = ref([
   }
 ])
 
-// 计算属性
+const customForm = reactive({
+  baseURL: 'http://localhost:11434/api',
+  selectedModel: 'llama3.2',
+  temperature: 0.7
+})
+
+// 页面加载时自动设置为本地ollama配置
+onMounted(() => {
+  // 检查是否已经有配置
+  const savedConfig = localStorage.getItem('customApiConfig')
+  if (!savedConfig) {
+    // 没有配置时，使用本地ollama默认配置
+    const defaultConfig = {
+      baseURL: 'http://localhost:11434/api',
+      selectedModel: 'llama3.2',
+      temperature: 0.7
+    }
+    localStorage.setItem('customApiConfig', JSON.stringify(defaultConfig))
+    store.updateApiConfig(defaultConfig, 'custom')
+    store.switchConfigType('custom')
+  }
+})
+
+const defaultModels = [
+  { id: 'deepseek-reasoner', name: 'deepseek-r1', description: 'deepseek-r1' },
+  { id: 'deepseek-chat', name: 'deepseek-v3', description: 'deepseek-v3' },
+  { id: 'claude-3.7-sonnet', name: 'claude-3.7-sonnet', description: 'claude-3.7-sonnet' },
+  { id: 'claude-4-sonnet', name: 'claude-4-sonnet', description: 'claude-4-sonnet' },
+  { id: 'gemini-2.5-pro-preview-05-06', name: 'gemini-2.5-pro-preview-05-06', description: 'gemini-2.5-pro-preview-05-06' }
+]
+
 const activeConfigs = computed(() => {
   return apiConfigs.value.filter(config => config.enabled && config.apiKey).length
 })
 
 const pendingConfigs = computed(() => {
   return apiConfigs.value.filter(config => !config.apiKey).length
+})
+
+const availableModels = computed(() => {
+  return [...defaultModels, ...customModels.value]
 })
 
 const connectedConfigs = computed(() => {
@@ -680,31 +462,53 @@ const saveAllConfigs = () => {
   ElMessage.success(`已保存 ${validConfigs.length} 个配置`)
 }
 
-const resetConfig = (config) => {
-  ElMessageBox.confirm(
-    '确定要重置此配置吗？所有设置将恢复为默认值。',
-    '重置配置',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
+const saveCustomModels = () => {
+  localStorage.setItem('customModels', JSON.stringify(customModels.value))
+}
+
+const loadCustomModels = () => {
+  const saved = localStorage.getItem('customModels')
+  if (saved) {
+    try {
+      customModels.value = JSON.parse(saved)
+    } catch (error) {
+      console.error('加载自定义模型失败:', error)
     }
-  ).then(() => {
-    // 重置为默认值
-    Object.assign(config, {
-      temperature: 0.7,
-      maxTokens: null, // 移除token限制
-      topP: 1.0,
-      frequencyPenalty: 0.0,
-      presencePenalty: 0.0,
-      timeout: 30,
-      streamMode: true,
-      retryCount: 3,
-      customHeaders: '',
-      status: 'disconnected'
-    })
-    
-    ElMessage.success('配置已重置')
+  }
+}
+
+const saveCustomConfig = async () => {
+  validating.value = true
+  try {
+    store.updateApiConfig(customForm, 'custom')
+    store.switchConfigType('custom')
+    ElMessage.success('自定义配置保存成功')
+    localStorage.setItem('customApiConfig', JSON.stringify(customForm))
+  } catch (error) {
+    ElMessage.error('配置保存失败：' + error.message)
+  } finally {
+    validating.value = false
+  }
+}
+
+const testCustomConnection = async () => {
+  validating.value = true
+  try {
+    store.updateApiConfig(customForm, 'custom')
+    store.switchConfigType('custom')
+    ElMessage.success('自定义配置连接测试成功')
+  } catch (error) {
+    ElMessage.error('连接测试失败：' + error.message)
+  } finally {
+    validating.value = false
+  }
+}
+
+const resetCustomConfig = () => {
+  Object.assign(customForm, {
+    baseURL: 'http://localhost:11434/api',
+    selectedModel: 'llama3.2',
+    temperature: 0.7
   })
 }
 

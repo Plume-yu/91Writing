@@ -4,6 +4,8 @@
       <el-tab-pane label="📝 编辑" name="editor"></el-tab-pane>
       <el-tab-pane label="👥 人物" name="characters"></el-tab-pane>
       <el-tab-pane label="🌍 世界观" name="worldview"></el-tab-pane>
+      <el-tab-pane label="🏔️ 地形" name="terrain"></el-tab-pane>
+      <el-tab-pane label="🧙 种族" name="races"></el-tab-pane>
       <el-tab-pane label="📚 语料库" name="corpus"></el-tab-pane>
       <el-tab-pane label="📊 事件线" name="events"></el-tab-pane>
     </el-tabs>

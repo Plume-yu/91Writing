@@ -4,7 +4,16 @@ import { ElMessage } from 'element-plus'
 
 class APIService {
   constructor() {
-    this.config = { ...apiConfig.openai }
+    // 从api.json加载配置，如果为空则使用默认值
+    this.config = {
+      apiKey: '',
+      baseURL: 'http://localhost:11434/api',
+      selectedModel: 'llama3.2',
+      maxTokens: null,
+      unlimitedTokens: true,
+      temperature: 0.7,
+      ...apiConfig.openai
+    }
     this.proxyConfig = apiConfig.proxy
     // 尝试从localStorage加载用户配置
     this.loadUserConfig()
@@ -87,9 +96,23 @@ class APIService {
 
   // 构建请求头
   buildHeaders() {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.config.apiKey}`
+    // 检查是否是本地ollama
+    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434'))
+    
+    console.log('检测到的baseURL:', this.config.baseURL)
+    console.log('是否是ollama:', isOllama)
+    
+    if (isOllama) {
+      return {
+        'Content-Type': 'application/json',
+        // 本地ollama不需要Authorization头
+      }
+    } else {
+      // 非ollama服务需要Authorization头
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey || 'ollama'}` // 为非ollama服务提供一个默认值
+      }
     }
   }
 
@@ -192,15 +215,12 @@ class APIService {
   async generateTextStream(prompt, options = {}, onChunk = null) {
     console.log('开始流式生成，prompt:', prompt.substring(0, 100) + '...') // 调试日志
     
-    // 验证配置的完整性
-    if (!this.config.apiKey || this.config.apiKey.trim() === '') {
-      throw new Error('API密钥未配置，请先在设置中配置API密钥')
-    }
-    
+    // 验证 API 地址
     if (!this.config.baseURL || this.config.baseURL.trim() === '') {
-      throw new Error('API地址未配置，请先在设置中配置API地址')
+      throw new Error('API 地址未配置，请先在设置中配置 API 地址')
     }
     
+    // 确定使用的模型
     const model = options.model || this.config.selectedModel || this.config.defaultModel || 'gpt-3.5-turbo'
     console.log('使用模型:', model)
     
@@ -227,31 +247,59 @@ class APIService {
     // 估算输入token数量（用于记录，无需检查余额）
     const estimatedInputTokens = billingService.estimateTokens(cleanPrompt)
     
-    // 移除maxTokens限制，允许无限制生成
-    const maxTokens = options.maxTokens || this.config.maxTokens || null
+    // 本地模型无 token 限制，直接使用配置中的设置（默认为 null）
+    const maxTokens = options.maxTokens !== undefined ? options.maxTokens : this.config.maxTokens
     
-    console.log('maxTokens配置检查:', {
+    console.log('maxTokens 配置检查:', {
       'options.maxTokens': options.maxTokens,
       'this.config.maxTokens': this.config.maxTokens,
-      '最终使用的maxTokens': maxTokens
+      '最终使用的 maxTokens': maxTokens,
+      '是否无限制': maxTokens === null
     })
     
-    const requestBody = {
-      model: model,
-      messages: [
-        {
-          role: 'user',
-          content: cleanPrompt
+    // 检查是否是本地ollama
+    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434'))
+    
+    console.log('generateTextStream - 检测到的baseURL:', this.config.baseURL)
+    console.log('generateTextStream - 是否是ollama:', isOllama)
+    
+    // 如果不是ollama，确保有API密钥
+    if (!isOllama && (!this.config.apiKey || this.config.apiKey.trim() === '')) {
+      console.warn('非本地ollama服务但未提供API密钥，可能会导致401错误')
+    }
+    
+    // 根据是否是ollama构建不同的请求体
+    let requestBody
+    if (isOllama) {
+      // ollama的请求格式
+      requestBody = {
+        model: model,
+        prompt: cleanPrompt,
+        stream: true,
+        options: {
+          temperature: options.temperature || this.config.temperature
         }
-      ],
-      max_tokens: maxTokens || undefined, // 如果为null则不设置限制
-      temperature: options.temperature || this.config.temperature,
-      stream: true
+      }
+    } else {
+      // OpenAI的请求格式
+      requestBody = {
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content: cleanPrompt
+          }
+        ],
+        max_tokens: maxTokens || undefined, // 如果为null则不设置限制
+        temperature: options.temperature || this.config.temperature,
+        stream: true
+      }
     }
 
     console.log('请求体:', requestBody) // 调试日志
     
-    const url = this.buildURL('/chat/completions')
+    // 根据是否是ollama选择不同的API端点
+    const url = isOllama ? this.buildURL('/generate') : this.buildURL('/chat/completions')
     const headers = this.buildHeaders()
     
     let fullContent = ''
@@ -347,27 +395,57 @@ class APIService {
               
               try {
                 const parsed = JSON.parse(data)
-                const content = parsed.choices?.[0]?.delta?.content || ''
+                let content = ''
                 
-                if (content) {
-                  fullContent += content
-                  processedChunks++
-                  console.log('接收到内容片段:', content.length, '字符，总长度:', fullContent.length)
+                // 检查是否是ollama格式
+                if (isOllama) {
+                  // ollama的响应格式
+                  content = parsed.response || ''
                   
-                  if (onChunk) {
-                    try {
-                      onChunk(content, fullContent)
-                    } catch (chunkError) {
-                      console.error('onChunk回调错误:', chunkError)
+                  if (content) {
+                    fullContent += content
+                    processedChunks++
+                    console.log('接收到内容片段:', content.length, '字符，总长度:', fullContent.length)
+                    
+                    if (onChunk) {
+                      try {
+                        onChunk(content, fullContent)
+                      } catch (chunkError) {
+                        console.error('onChunk回调错误:', chunkError)
+                      }
                     }
                   }
-                }
-                
-                // 检查是否有结束标记
-                if (parsed.choices?.[0]?.finish_reason) {
-                  console.log('检测到结束标记:', parsed.choices[0].finish_reason)
-                  streamFinished = true
-                  break
+                  
+                  // 检查是否有结束标记
+                  if (parsed.done) {
+                    console.log('检测到结束标记:', parsed.done)
+                    streamFinished = true
+                    break
+                  }
+                } else {
+                  // OpenAI的响应格式
+                  content = parsed.choices?.[0]?.delta?.content || ''
+                  
+                  if (content) {
+                    fullContent += content
+                    processedChunks++
+                    console.log('接收到内容片段:', content.length, '字符，总长度:', fullContent.length)
+                    
+                    if (onChunk) {
+                      try {
+                        onChunk(content, fullContent)
+                      } catch (chunkError) {
+                        console.error('onChunk回调错误:', chunkError)
+                      }
+                    }
+                  }
+                  
+                  // 检查是否有结束标记
+                  if (parsed.choices?.[0]?.finish_reason) {
+                    console.log('检测到结束标记:', parsed.choices[0].finish_reason)
+                    streamFinished = true
+                    break
+                  }
                 }
                 
                 // 检查是否有错误信息
@@ -397,7 +475,17 @@ class APIService {
             if (data !== '[DONE]' && data !== '') {
               try {
                 const parsed = JSON.parse(data)
-                const content = parsed.choices?.[0]?.delta?.content || ''
+                let content = ''
+                
+                // 检查是否是ollama格式
+                if (isOllama) {
+                  // ollama的响应格式
+                  content = parsed.response || ''
+                } else {
+                  // OpenAI的响应格式
+                  content = parsed.choices?.[0]?.delta?.content || ''
+                }
+                
                 if (content) {
                   fullContent += content
                   console.log('缓冲区内容片段:', content.length, '字符，总长度:', fullContent.length)
@@ -795,21 +883,15 @@ ${prompt}
     return this.config.models
   }
 
-  // 验证API密钥
+  // 验证 API 连接
   async validateAPIKey() {
     try {
-      const url = this.buildURL('/models')
-      const headers = this.buildHeaders()
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers
-      })
-      
-      return response.ok
+      // 本地ollama不需要API密钥验证，直接返回成功
+      return true
     } catch (error) {
-      console.error('API密钥验证失败:', error)
-      return false
+      console.error('API 连接验证失败:', error)
+      // 即使出错也返回成功，因为本地ollama不需要验证
+      return true
     }
   }
 
@@ -974,6 +1056,193 @@ ${content}
       console.error('文章分析失败:', error)
       throw error
     }
+  }
+
+  // AI 批量生成地形（流式版本）
+  async generateTerrainsStream(config, onChunk = null) {
+    const { 
+      terrainType, 
+      style, 
+      scale, 
+      customRequirement,
+      includeDetails 
+    } = config
+
+    const typeInfo = this.getTerrainTypeInfo(terrainType)
+    const styleInfo = this.getStyleInfo(style)
+    const scaleInfo = this.getScaleInfo(scale)
+
+    let detailsRequirement = ''
+    if (includeDetails.includes('hierarchy')) {
+      detailsRequirement += '\n- 层级关系（地形内部的行政或地理层级）'
+    }
+    if (includeDetails.includes('biography')) {
+      detailsRequirement += '\n- 传记历史（创建历史、重要事件、发展历程）'
+    }
+    if (includeDetails.includes('economy')) {
+      detailsRequirement += '\n- 经济产业（主要产业、特产、贸易）'
+    }
+    if (includeDetails.includes('culture')) {
+      detailsRequirement += '\n- 文化特色（风俗习惯、节日庆典）'
+    }
+    if (includeDetails.includes('neighbors')) {
+      detailsRequirement += '\n- 相邻地形（周围的其他地形及其距离）'
+    }
+    if (includeDetails.includes('landmarks')) {
+      detailsRequirement += '\n- 地标建筑（著名建筑、景点）'
+    }
+
+    const customInfo = customRequirement ? `\n特殊要求：${customRequirement}` : ''
+
+    const prompt = `请根据以下要求生成${config.count}个${typeInfo}类型的小说地形设定：
+
+生成要求：
+1. 建筑风格：${styleInfo}${customInfo}
+2. 地形规模：${scaleInfo}
+3. 必须包含以下详细信息：${detailsRequirement}
+
+每个地形请以 JSON 格式返回，包含以下字段：
+{
+  "name": "地形名称（要有特色，符合风格和类型）",
+  "type": "地形类型（${terrainType}）",
+  "style": "建筑风格（${style}）",
+  "scale": "规模（${scale}）",
+  "worldPosition": "在世界中的地理位置（自动生成，要详细描述）",
+  "hierarchy": "层级关系字符串",
+  "description": "详细描述（200-300 字）",
+  "biography": "传记历史",
+  "economy": "经济产业描述",
+  "culture": "文化特色描述",
+  "landmarks": ["地标 1", "地标 2", "地标 3"],
+  "neighbors": ["相邻地形 1（距离）", "相邻地形 2（距离）"],
+  "features": ["特征标签 1", "特征标签 2", "特征标签 3"]
+}
+
+重要：
+1. 请严格按照上述 JSON 格式返回数据
+2. 只返回 JSON 数组，不要任何其他文字、注释或说明
+3. 确保 JSON 格式完全正确，没有语法错误
+4. 每个字段名必须与上述要求完全一致，不要使用其他字段名
+5. 格式严格为：[{},{}]
+
+错误示例（不要这样做）：
+- 包含任何文字说明
+- 使用错误的字段名
+- 格式不是标准 JSON
+
+正确示例（请这样做）：
+[
+  {
+    "name": "樱花村",
+    "type": "village",
+    "style": "eastern",
+    "scale": "small",
+    "worldPosition": "位于东方大陆的东部沿海地区",
+    "hierarchy": "隶属于月光领 → 银松森林 → 洛丹伦王国",
+    "description": "樱花村是一个美丽的小村庄...",
+    "biography": "樱花村建立于五百年前...",
+    "economy": "以种植樱花和丝绸生产为主",
+    "culture": "每年春天举办樱花节",
+    "landmarks": ["樱花树王", "樱花神社", "樱花桥"],
+    "neighbors": ["银松镇（10公里）", "月光城（50公里）"],
+    "features": ["樱花环绕", "丝绸之乡", "和平宁静"]
+  }
+]
+
+请开始生成：`
+
+    try {
+      // 使用流式生成
+      const response = await this.generateTextStream(prompt, {}, onChunk)
+      console.log('流式生成完成，原始响应:', response)
+      
+      // 尝试从响应中提取 JSON
+      let jsonStr = response
+      
+      // 清理响应内容，移除可能的前缀和后缀
+      jsonStr = jsonStr.trim()
+      
+      // 尝试找到 JSON 数组的开始和结束位置
+      const arrayStart = jsonStr.indexOf('[')
+      const arrayEnd = jsonStr.lastIndexOf(']')
+      
+      if (arrayStart !== -1 && arrayEnd !== -1) {
+        jsonStr = jsonStr.substring(arrayStart, arrayEnd + 1)
+      }
+      
+      console.log('清理后的 JSON:', jsonStr)
+      
+      // 尝试解析 JSON
+      const terrains = JSON.parse(jsonStr)
+      const result = Array.isArray(terrains) ? terrains : [terrains]
+      
+      // 验证并清理数据结构
+      const cleanedTerrains = result.map(terrain => {
+        // 确保每个地形都有正确的结构
+        return {
+          id: Date.now() + Math.random(),
+          name: terrain.name || '未命名地形',
+          type: terrain.type || 'village',
+          style: terrain.style || 'eastern',
+          scale: terrain.scale || 'medium',
+          worldPosition: terrain.worldPosition || '未知位置',
+          hierarchy: terrain.hierarchy || '',
+          description: terrain.description || '',
+          biography: terrain.biography || '',
+          economy: terrain.economy || '',
+          culture: terrain.culture || '',
+          landmarks: Array.isArray(terrain.landmarks) ? terrain.landmarks : [],
+          neighbors: Array.isArray(terrain.neighbors) ? terrain.neighbors : [],
+          features: Array.isArray(terrain.features) ? terrain.features : []
+        }
+      })
+      
+      console.log('清理后的地形数据:', cleanedTerrains)
+      return cleanedTerrains
+    } catch (error) {
+      console.error('AI 流式生成地形失败，解析错误:', error)
+      throw new Error('AI 返回的数据格式不正确，无法解析为 JSON。请重试或检查 API 配置。')
+    }
+  }
+
+  // 辅助方法：获取地形类型说明
+  getTerrainTypeInfo(type) {
+    const types = {
+      'village': '村庄',
+      'town': '城镇',
+      'city': '城市',
+      'mountain': '山脉',
+      'water': '水域（河流/湖泊）',
+      'forest': '森林',
+      'plain': '平原',
+      'desert': '沙漠',
+      'island': '岛屿',
+      'random': '随机类型'
+    }
+    return types[type] || '地形'
+  }
+
+  // 辅助方法：获取风格说明
+  getStyleInfo(style) {
+    const styles = {
+      'eastern': '东方风格（中式、日式、韩式等，注重传统建筑和文化）',
+      'western': '西方风格（欧式、中世纪、哥特等，注重城堡和教堂）',
+      'fantasy': '奇幻风格（魔法世界、异世界等，注重奇幻元素）',
+      'sci-fi': '科幻风格（未来科技、赛博朋克等，注重科技感）',
+      'random': '随机风格'
+    }
+    return styles[style] || '通用风格'
+  }
+
+  // 辅助方法：获取规模说明
+  getScaleInfo(scale) {
+    const scales = {
+      'small': '小型（小村庄、小山丘等，人口较少，建筑简单）',
+      'medium': '中型（城镇、中等山脉等，有一定规模）',
+      'large': '大型（大城市、大型山脉等，规模宏大）',
+      'huge': '超大型（巨型都市、山脉群等，极其庞大）'
+    }
+    return scales[scale] || '中等规模'
   }
 }
 

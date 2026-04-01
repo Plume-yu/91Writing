@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import apiService from '../services/api.js'
 
 export const useNovelStore = defineStore('novel', () => {
@@ -26,27 +26,54 @@ export const useNovelStore = defineStore('novel', () => {
   const characters = ref([])
   const worldSettings = ref([])
   
-  // API配置 - 分离官方和自定义配置
+  // API 配置 - 分离官方和自定义配置
   const officialApiConfig = ref({
     apiKey: '',
     baseURL: 'https://ai.91hub.vip/v1',
     selectedModel: 'claude-4-sonnet',
-    maxTokens: 2000000,
-    unlimitedTokens: false,
+    maxTokens: null,
+    unlimitedTokens: true,
     temperature: 0.7
   })
   
   const customApiConfig = ref({
-    apiKey: '',
-    baseURL: 'https://api.openai.com/v1',
-    selectedModel: 'gpt-3.5-turbo',
-    maxTokens: 2000000,
-    unlimitedTokens: false,
+    baseURL: 'http://localhost:11434/api',
+    selectedModel: 'llama3.2',
+    maxTokens: null,
+    unlimitedTokens: true,
     temperature: 0.7
   })
+
+  // 初始化时默认使用本地ollama配置
+  onMounted(() => {
+    // 强制使用自定义配置（本地ollama）
+    localStorage.setItem('apiConfigType', 'custom')
+    currentConfigType.value = 'custom'
+    
+    // 检查是否有自定义配置
+    const savedCustomConfig = localStorage.getItem('customApiConfig')
+    if (!savedCustomConfig) {
+      // 没有自定义配置时，使用默认值
+      const defaultConfig = {
+        baseURL: 'http://localhost:11434/api',
+        selectedModel: 'llama3.2',
+        temperature: 0.7
+      }
+      localStorage.setItem('customApiConfig', JSON.stringify(defaultConfig))
+      customApiConfig.value = defaultConfig
+    }
+    
+    // 更新apiService配置
+    const currentConfig = getCurrentApiConfig()
+    apiService.updateConfig(currentConfig)
+    isApiConfigured.value = true
+    
+    console.log('初始化完成 - 当前配置类型:', currentConfigType.value)
+    console.log('初始化完成 - 当前API配置:', currentConfig)
+  })
   
-  const currentConfigType = ref('official') // 'official' 或 'custom'
-  const isApiConfigured = ref(false)
+  const currentConfigType = ref('custom') // 默认使用自定义配置（本地ollama）
+  const isApiConfigured = ref(true) // 本地ollama不需要API密钥，默认已配置
   
   // 获取当前活动的API配置
   const getCurrentApiConfig = () => {
@@ -81,7 +108,7 @@ export const useNovelStore = defineStore('novel', () => {
       
       // 使用当前配置类型的配置
       const currentConfig = getCurrentApiConfig()
-      isApiConfigured.value = !!currentConfig.apiKey
+      isApiConfigured.value = true // 本地ollama不需要API密钥
       apiService.updateConfig(currentConfig)
       
     } catch (error) {
@@ -333,7 +360,8 @@ export const useNovelStore = defineStore('novel', () => {
     // 更新apiService配置为当前活动配置
     const currentConfig = getCurrentApiConfig()
     apiService.updateConfig(currentConfig)
-    isApiConfigured.value = !!currentConfig.apiKey
+    // 本地模型只需检查 API 地址，不需要密钥
+    isApiConfigured.value = !!(currentConfig.baseURL && currentConfig.baseURL.trim() !== '')
   }
   
   // 切换配置类型
@@ -344,25 +372,25 @@ export const useNovelStore = defineStore('novel', () => {
     // 更新apiService配置
     const currentConfig = getCurrentApiConfig()
     apiService.updateConfig(currentConfig)
-    isApiConfigured.value = !!currentConfig.apiKey
+    isApiConfigured.value = true // 本地ollama不需要API密钥
   }
 
   const validateApiKey = async () => {
     try {
-      const isValid = await apiService.validateAPIKey()
-      isApiConfigured.value = isValid
-      return isValid
+      // 本地ollama不需要API密钥验证
+      isApiConfigured.value = true
+      return true
     } catch (error) {
-      console.error('API密钥验证失败:', error)
-      isApiConfigured.value = false
-      return false
+      console.error('API 连接验证失败:', error)
+      isApiConfigured.value = true // 本地ollama仍然视为配置成功
+      return true
     }
   }
 
-  // 使用真实API生成大纲
+  // 使用真实 API 生成大纲
   const generateOutlineWithAPI = async (theme) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置 API 地址')
     }
     
     setGeneratingOutline(true)
@@ -382,7 +410,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 流式生成大纲
   const generateOutlineWithAPIStream = async (theme, onChunk = null) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     setGeneratingOutline(true)
@@ -406,7 +434,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 使用真实API生成章节内容
   const generateChapterWithAPI = async (chapter, novelInfo = null) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     setGeneratingChapter(true)
@@ -435,7 +463,7 @@ export const useNovelStore = defineStore('novel', () => {
   // AI对话功能
   const sendChatMessageWithAPI = async (message) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     setAiChatting(true)
@@ -465,7 +493,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 生成文章摘要
   const generateSummaryWithAPI = async (options = {}) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     if (!currentNovel.value) {
@@ -489,7 +517,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 获取写作建议
   const getWritingAdviceWithAPI = async () => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     if (!currentNovel.value) {
