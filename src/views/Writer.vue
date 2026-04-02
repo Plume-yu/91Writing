@@ -21,6 +21,7 @@
         <el-tab-pane label="🧙 种族" name="races"></el-tab-pane>
         <el-tab-pane label="🏰 势力" name="factions"></el-tab-pane>
         <el-tab-pane label="🎒 物品" name="items"></el-tab-pane>
+        <el-tab-pane label="📋 任务" name="tasks"></el-tab-pane>
         <el-tab-pane label="📚 语料库" name="corpus"></el-tab-pane>
         <el-tab-pane label="📊 事件线" name="events"></el-tab-pane>
       </el-tabs>
@@ -112,80 +113,14 @@
 
         <!-- 人物管理面板 -->
         <div v-show="activeTab === 'characters'" class="panel-content">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>👥 人物角色</span>
-                <div class="character-actions">
-                  <el-button size="small" type="primary" @click="addCharacter">
-                    <el-icon><Plus /></el-icon>
-                    新增
-                  </el-button>
-                  <el-button size="small" type="success" @click="showBatchGenerateDialog">
-                    🤖 AI批量生成
-                  </el-button>
-                </div>
-              </div>
-            </template>
-            
-            <div class="characters-list">
-              <div v-for="character in characters" :key="character.id" class="character-item">
-                <div class="character-content" @click="editCharacter(character)">
-                  <div class="character-avatar">
-                    <img v-if="character.avatar" :src="character.avatar" />
-                    <div v-else class="default-avatar">{{ character.name?.charAt(0) || '？' }}</div>
-                  </div>
-                  <div class="character-info">
-                    <h4>{{ character.name }}</h4>
-                    <div class="character-meta">
-                      <el-tag :type="getRoleType(character.role)" size="small">{{ getRoleText(character.role) }}</el-tag>
-                      <el-tag v-if="character.gender" type="info" size="small">{{ getGenderText(character.gender) }}</el-tag>
-                      <span v-if="character.age" class="age-text">{{ character.age }}岁</span>
-                    </div>
-                    <el-tooltip 
-                      v-if="character.personality" 
-                      :content="character.personality" 
-                      placement="right"
-                      :disabled="character.personality.length <= 60"
-                      effect="light"
-                      :show-after="300"
-                    >
-                      <p class="character-desc character-desc-truncated">
-                        {{ character.personality.length > 60 ? character.personality.substring(0, 60) + '...' : character.personality }}
-                      </p>
-                    </el-tooltip>
-                    <div class="character-tags" v-if="character.tags && character.tags.length">
-                      <el-tag v-for="tag in character.tags" :key="tag" size="small">{{ tag }}</el-tag>
-                    </div>
-                  </div>
-                </div>
-                <div class="character-actions">
-                  <el-dropdown @command="(cmd) => handleCharacterAction(cmd, character)" trigger="click">
-                    <el-button size="small" type="text" @click.stop>
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">
-                          <el-icon><Edit /></el-icon>
-                          编辑
-                        </el-dropdown-item>
-                        <el-dropdown-item command="delete" divided>
-                          <el-icon><Delete /></el-icon>
-                          删除
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-              
-              <div v-if="characters.length === 0" class="empty-state">
-                <p>暂无人物设定</p>
-                <el-button size="small" @click="addCharacter">创建第一个角色</el-button>
-              </div>
-            </div>
-          </el-card>
+          <CharacterPanel 
+            :characters="characters"
+            @select-character="selectCharacter"
+            @add-character="addCharacter"
+            @edit-character="editCharacter"
+            @delete-character="deleteCharacter"
+            @batch-generate="openBatchGenerateDialog"
+          />
         </div>
 
         <!-- 世界观管理面板 -->
@@ -377,229 +312,62 @@
 
         <!-- 地形面板 -->
         <div v-show="activeTab === 'terrain'" class="panel-content">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>🏔️ 地形管理</span>
-                <el-dropdown @command="handleTerrainCommand">
-                  <el-button size="small" type="primary">
-                    <el-icon><Plus /></el-icon>
-                    新增地形 <el-icon><ArrowDown /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="manual">手动创建</el-dropdown-item>
-                      <el-dropdown-item command="ai-batch">AI批量生成</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </template>
-            
-            <div class="terrain-list">
-              <div 
-                v-for="terrain in terrainData" 
-                :key="terrain.id"
-                class="terrain-item"
-                @click="selectTerrain(terrain)"
-              >
-                <div class="terrain-info">
-                  <h4>{{ terrain.name }}</h4>
-                  <p class="terrain-desc">{{ terrain.description?.length > 50 ? terrain.description.substring(0, 50) + '...' : terrain.description }}</p>
-                  <div class="terrain-meta">
-                    <el-tag size="small">{{ terrain.type || '未知类型' }}</el-tag>
-                  </div>
-                </div>
-                <div class="terrain-actions">
-                  <el-dropdown @command="(cmd) => handleTerrainAction(cmd, terrain)">
-                    <el-button size="small" type="text">
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-              
-              <div v-if="terrainData.length === 0" class="empty-state">
-                <p>暂无地形数据</p>
-                <el-button size="small" type="primary" @click="addTerrain">
-                  手动创建地形
-                </el-button>
-              </div>
-            </div>
-          </el-card>
+          <TerrainPanel 
+            :terrain-data="terrainData"
+            @select-terrain="selectTerrain"
+            @add-terrain="addTerrain"
+            @edit-terrain="editTerrain"
+            @delete-terrain="deleteTerrain"
+            @batch-generate="showBatchTerrainDialog"
+          />
         </div>
 
         <!-- 种族面板 -->
         <div v-show="activeTab === 'races'" class="panel-content">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>🧙 种族管理</span>
-                <el-dropdown @command="handleRaceCommand">
-                  <el-button size="small" type="primary">
-                    <el-icon><Plus /></el-icon>
-                    新增种族 <el-icon><ArrowDown /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="manual">手动创建</el-dropdown-item>
-                      <el-dropdown-item command="ai-batch">AI批量生成</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </template>
-            
-            <div class="race-list">
-              <div 
-                v-for="race in raceData" 
-                :key="race.id"
-                class="race-item"
-                @click="selectRace(race)"
-              >
-                <div class="race-info">
-                  <h4>{{ race.name }}</h4>
-                  <p class="race-desc">{{ race.description?.length > 50 ? race.description.substring(0, 50) + '...' : race.description }}</p>
-                  <div class="race-meta">
-                    <el-tag size="small">{{ race.type || '未知类型' }}</el-tag>
-                  </div>
-                </div>
-                <div class="race-actions">
-                  <el-dropdown @command="(cmd) => handleRaceAction(cmd, race)">
-                    <el-button size="small" type="text">
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-              
-              <div v-if="raceData.length === 0" class="empty-state">
-                <p>暂无种族数据</p>
-                <el-button size="small" type="primary" @click="addRace">
-                  手动创建种族
-                </el-button>
-              </div>
-            </div>
-          </el-card>
+          <RacePanel 
+            :race-data="raceData"
+            @select-race="selectRace"
+            @add-race="addRace"
+            @edit-race="editRace"
+            @delete-race="deleteRace"
+            @batch-generate="showBatchRaceDialog"
+          />
         </div>
 
         <!-- 势力面板 -->
         <div v-show="activeTab === 'factions'" class="panel-content">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>🏰 势力管理</span>
-                <el-button size="small" type="primary" @click="addFaction">
-                  <el-icon><Plus /></el-icon>
-                  新增势力
-                </el-button>
-              </div>
-            </template>
-            
-            <div class="faction-list">
-              <div 
-                v-for="faction in factionData" 
-                :key="faction.id"
-                class="faction-item"
-                @click="selectFaction(faction)"
-              >
-                <div class="faction-info">
-                  <h4>{{ faction.name }}</h4>
-                  <p class="faction-desc">{{ faction.description?.length > 50 ? faction.description.substring(0, 50) + '...' : faction.description }}</p>
-                  <div class="faction-meta">
-                    <el-tag size="small">{{ faction.terrain || '未知领地' }}</el-tag>
-                    <el-tag size="small">{{ faction.race || '未知种族' }}</el-tag>
-                  </div>
-                </div>
-                <div class="faction-actions">
-                  <el-dropdown @command="(cmd) => handleFactionAction(cmd, faction)">
-                    <el-button size="small" type="text">
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-              
-              <div v-if="factionData.length === 0" class="empty-state">
-                <p>暂无势力数据</p>
-                <el-button size="small" type="primary" @click="addFaction">
-                  创建势力
-                </el-button>
-              </div>
-            </div>
-          </el-card>
+          <FactionPanel 
+            :faction-data="factionData"
+            @select-faction="selectFaction"
+            @add-faction="addFaction"
+            @edit-faction="editFaction"
+            @delete-faction="deleteFaction"
+            @batch-generate="showBatchFactionDialog"
+          />
         </div>
 
         <!-- 物品面板 -->
         <div v-show="activeTab === 'items'" class="panel-content">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-header">
-                <span>🎒 物品管理</span>
-                <el-button size="small" type="primary" @click="addItem">
-                  <el-icon><Plus /></el-icon>
-                  新增物品
-                </el-button>
-              </div>
-            </template>
-            
-            <div class="item-list">
-              <div 
-                v-for="item in itemData" 
-                :key="item.id"
-                class="item-item"
-                @click="selectItem(item)"
-              >
-                <div class="item-info">
-                  <h4>{{ item.name }}</h4>
-                  <p class="item-desc">{{ item.description?.length > 50 ? item.description.substring(0, 50) + '...' : item.description }}</p>
-                  <div class="item-meta">
-                    <el-tag :type="getItemLevelType(item.level)" size="small">
-                      等级 {{ item.level }}
-                    </el-tag>
-                  </div>
-                </div>
-                <div class="item-actions">
-                  <el-dropdown @command="(cmd) => handleItemAction(cmd, item)">
-                    <el-button size="small" type="text">
-                      <el-icon><MoreFilled /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                        <el-dropdown-item divided command="delete">删除</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
-              
-              <div v-if="itemData.length === 0" class="empty-state">
-                <p>暂无物品数据</p>
-                <el-button size="small" type="primary" @click="addItem">
-                  创建物品
-                </el-button>
-              </div>
-            </div>
-          </el-card>
+          <ItemPanel 
+            :item-data="itemData"
+            @select-item="selectItem"
+            @add-item="addItem"
+            @edit-item="editItem"
+            @delete-item="deleteItem"
+            @batch-generate="showBatchItemDialog"
+          />
+        </div>
+
+        <!-- 任务面板 -->
+        <div v-show="activeTab === 'tasks'" class="panel-content">
+          <TaskPanel 
+            :task-data="taskData"
+            @select-task="selectTask"
+            @add-task="addTask"
+            @edit-task="editTask"
+            @delete-task="deleteTask"
+            @batch-generate="showBatchTaskDialog"
+          />
         </div>
       </div>
 
@@ -2359,6 +2127,12 @@ import '@wangeditor/editor/dist/css/style.css'
 import apiService from '../services/api.js'
 import billingService from '../services/billing.js'
 import { useNovelStore } from '../stores/novel.js'
+import TerrainPanel from '../components/TerrainPanel.vue'
+import RacePanel from '../components/RacePanel.vue'
+import FactionPanel from '../components/FactionPanel.vue'
+import ItemPanel from '../components/ItemPanel.vue'
+import CharacterPanel from '../components/CharacterPanel.vue'
+import TaskPanel from '../components/TaskPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -2568,12 +2342,14 @@ const terrainData = ref([])
 const raceData = ref([])
 const factionData = ref([])
 const itemData = ref([])
+const taskData = ref([])
 
 // 当前选中的数据
 const currentTerrain = ref(null)
 const currentRace = ref(null)
 const currentFaction = ref(null)
 const currentItem = ref(null)
+const currentTask = ref(null)
 
 
 // 对话框状态
@@ -2581,6 +2357,17 @@ const showCharacterDialog = ref(false)
 const showWorldDialog = ref(false)
 const showCorpusDialog = ref(false)
 const showEventDialog = ref(false)
+const showBatchGenerateDialog = ref(false)
+const showTerrainDialog = ref(false)
+const showBatchTerrainDialog = ref(false)
+const showRaceDialog = ref(false)
+const showBatchRaceDialog = ref(false)
+const showFactionDialog = ref(false)
+const showBatchFactionDialog = ref(false)
+const showItemDialog = ref(false)
+const showBatchItemDialog = ref(false)
+const showTaskDialog = ref(false)
+const showBatchTaskDialog = ref(false)
 
 // 表单数据
 const chapterForm = ref({
@@ -3123,6 +2910,50 @@ const getItemLevelType = (level) => {
     '5': 'primary'
   }
   return levelMap[level] || 'info'
+}
+
+// 任务相关方法
+const selectTask = (task) => {
+  currentTask.value = task
+}
+
+const addTask = () => {
+  currentTask.value = {
+    id: Date.now(),
+    name: '',
+    description: '',
+    status: '未开始',
+    level: 1,
+    reward: '',
+    createdAt: new Date().toISOString()
+  }
+  showTaskDialog.value = true
+}
+
+const editTask = (task) => {
+  currentTask.value = task
+  showTaskDialog.value = true
+}
+
+const deleteTask = (task) => {
+  ElMessageBox.confirm(
+    `确定要删除任务 "${task.name}" 吗？`,
+    '删除确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(() => {
+    const index = taskData.value.findIndex(t => t.id === task.id)
+    if (index !== -1) {
+      taskData.value.splice(index, 1)
+      ElMessage.success('任务删除成功')
+      if (currentTask.value?.id === task.id) {
+        currentTask.value = null
+      }
+    }
+  }).catch(() => {})
 }
 
 // AI生成相关方法
@@ -4527,7 +4358,7 @@ const selectAllContextChapters = () => {
 
 
 // 显示批量生成对话框
-const showBatchGenerateDialog = () => {
+const openBatchGenerateDialog = () => {
   showBatchGenerateCharacterDialog.value = true
   // 重置配置
   batchGenerateConfig.value = {

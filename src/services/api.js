@@ -6,61 +6,36 @@ class APIService {
   constructor() {
     // 从api.json加载配置，如果为空则使用默认值
     this.config = {
-      apiKey: '',
-      baseURL: 'http://localhost:11434/api',
-      selectedModel: 'llama3.2',
-      maxTokens: null,
-      unlimitedTokens: true,
-      temperature: 0.7,
-      ...apiConfig.openai
+      baseURL: '/api',
+      selectedModel: 'qwen3.5:27b',
+      temperature: 0.7
     }
+    
+    // 确保baseURL不为空
+    console.log('初始baseURL:', this.config.baseURL)
+    
     this.proxyConfig = apiConfig.proxy
     // 尝试从localStorage加载用户配置
     this.loadUserConfig()
+    
+    console.log('最终API配置:', this.config)
   }
   
   // 加载用户配置
   loadUserConfig() {
     try {
-      // 检查新的配置结构
-      const configType = localStorage.getItem('apiConfigType') || 'official'
-      
-      let userConfig = null
-      
-      if (configType === 'official') {
-        // 加载官方配置
-        const saved = localStorage.getItem('officialApiConfig')
-        if (saved) {
-          userConfig = JSON.parse(saved)
-        }
-      } else {
-        // 加载自定义配置
-        const saved = localStorage.getItem('customApiConfig')
-        if (saved) {
-          userConfig = JSON.parse(saved)
-        }
-      }
-      
-      // 如果新配置不存在，尝试加载旧的配置（向后兼容）
-      if (!userConfig) {
-        const oldSaved = localStorage.getItem('apiConfig')
-        if (oldSaved) {
-          userConfig = JSON.parse(oldSaved)
-          // 将旧配置迁移到新结构
-          if (configType === 'official') {
-            localStorage.setItem('officialApiConfig', JSON.stringify(userConfig))
-          } else {
-            localStorage.setItem('customApiConfig', JSON.stringify(userConfig))
-          }
-          localStorage.setItem('apiConfigType', configType)
-        }
-      }
-      
-      if (userConfig) {
-        this.config = { ...this.config, ...userConfig }
+      // 加载自定义配置（本地ollama）
+      const saved = localStorage.getItem('customApiConfig')
+      if (saved) {
+        const userConfig = JSON.parse(saved)
+        // 只合并除baseURL外的其他配置，确保baseURL始终使用默认值
+        const { baseURL, ...otherConfig } = userConfig
+        this.config = { ...this.config, ...otherConfig }
+        console.log('加载用户配置，使用默认baseURL')
       }
     } catch (error) {
       console.error('加载用户API配置失败:', error)
+      // 加载失败时使用默认配置
     }
   }
 
@@ -72,16 +47,9 @@ class APIService {
   // 更新API配置
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig }
-    // 保存到localStorage（根据配置类型保存到对应位置）
+    // 保存到localStorage（只保存到customApiConfig）
     try {
-      const configType = localStorage.getItem('apiConfigType') || 'official'
-      
-      if (configType === 'official') {
-        localStorage.setItem('officialApiConfig', JSON.stringify(this.config))
-      } else {
-        localStorage.setItem('customApiConfig', JSON.stringify(this.config))
-      }
-      
+      localStorage.setItem('customApiConfig', JSON.stringify(this.config))
       // 同时更新旧的配置键以保持兼容性
       localStorage.setItem('apiConfig', JSON.stringify(this.config))
     } catch (error) {
@@ -91,28 +59,23 @@ class APIService {
 
   // 构建请求URL
   buildURL(endpoint) {
-    return `${this.config.baseURL}${endpoint}`
+    const url = `${this.config.baseURL}${endpoint}`
+    console.log('构建的URL:', url)
+    return url
   }
 
   // 构建请求头
   buildHeaders() {
     // 检查是否是本地ollama
-    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434'))
+    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434') || this.config.baseURL === '/api')
     
     console.log('检测到的baseURL:', this.config.baseURL)
     console.log('是否是ollama:', isOllama)
     
-    if (isOllama) {
-      return {
-        'Content-Type': 'application/json',
-        // 本地ollama不需要Authorization头
-      }
-    } else {
-      // 非ollama服务需要Authorization头
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.apiKey || 'ollama'}` // 为非ollama服务提供一个默认值
-      }
+    // 统一返回基本的Content-Type头，本地ollama不需要Authorization头
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
     }
   }
 
@@ -258,15 +221,10 @@ class APIService {
     })
     
     // 检查是否是本地ollama
-    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434'))
+    const isOllama = this.config.baseURL && (this.config.baseURL.includes('localhost:11434') || this.config.baseURL.includes('127.0.0.1:11434') || this.config.baseURL === '/api')
     
     console.log('generateTextStream - 检测到的baseURL:', this.config.baseURL)
     console.log('generateTextStream - 是否是ollama:', isOllama)
-    
-    // 如果不是ollama，确保有API密钥
-    if (!isOllama && (!this.config.apiKey || this.config.apiKey.trim() === '')) {
-      console.warn('非本地ollama服务但未提供API密钥，可能会导致401错误')
-    }
     
     // 根据是否是ollama构建不同的请求体
     let requestBody
@@ -302,6 +260,10 @@ class APIService {
     const url = isOllama ? this.buildURL('/generate') : this.buildURL('/chat/completions')
     const headers = this.buildHeaders()
     
+    console.log('最终API请求URL:', url) // 关键调试日志
+    console.log('请求头:', headers) // 关键调试日志
+    console.log('请求体:', JSON.stringify(requestBody)) // 关键调试日志
+    
     let fullContent = ''
     let hasError = false
     
@@ -315,6 +277,7 @@ class APIService {
       })
       
       console.log('API响应状态:', response.status) // 调试日志
+      console.log('API响应URL:', response.url) // 关键调试日志
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -379,22 +342,9 @@ class APIService {
           for (const line of lines) {
             const trimmedLine = line.trim()
             
-            if (trimmedLine.startsWith('data: ')) {
-              const data = trimmedLine.slice(6).trim()
-              
-              if (data === '[DONE]') {
-                console.log('收到[DONE]标记，流式生成完成，总内容长度:', fullContent.length)
-                streamFinished = true
-                break
-              }
-              
-              // 跳过空数据
-              if (!data || data === '') {
-                continue
-              }
-              
+            if (trimmedLine) {
               try {
-                const parsed = JSON.parse(data)
+                const parsed = JSON.parse(trimmedLine)
                 let content = ''
                 
                 // 检查是否是ollama格式
@@ -422,29 +372,54 @@ class APIService {
                     streamFinished = true
                     break
                   }
-                } else {
-                  // OpenAI的响应格式
-                  content = parsed.choices?.[0]?.delta?.content || ''
+                } else if (trimmedLine.startsWith('data: ')) {
+                  // OpenAI的SSE响应格式
+                  const data = trimmedLine.slice(6).trim()
                   
-                  if (content) {
-                    fullContent += content
-                    processedChunks++
-                    console.log('接收到内容片段:', content.length, '字符，总长度:', fullContent.length)
-                    
-                    if (onChunk) {
-                      try {
-                        onChunk(content, fullContent)
-                      } catch (chunkError) {
-                        console.error('onChunk回调错误:', chunkError)
-                      }
-                    }
-                  }
-                  
-                  // 检查是否有结束标记
-                  if (parsed.choices?.[0]?.finish_reason) {
-                    console.log('检测到结束标记:', parsed.choices[0].finish_reason)
+                  if (data === '[DONE]') {
+                    console.log('收到[DONE]标记，流式生成完成，总内容长度:', fullContent.length)
                     streamFinished = true
                     break
+                  }
+                  
+                  // 跳过空数据
+                  if (!data || data === '') {
+                    continue
+                  }
+                  
+                  try {
+                    const openaiParsed = JSON.parse(data)
+                    content = openaiParsed.choices?.[0]?.delta?.content || ''
+                    
+                    if (content) {
+                      fullContent += content
+                      processedChunks++
+                      console.log('接收到内容片段:', content.length, '字符，总长度:', fullContent.length)
+                      
+                      if (onChunk) {
+                        try {
+                          onChunk(content, fullContent)
+                        } catch (chunkError) {
+                          console.error('onChunk回调错误:', chunkError)
+                        }
+                      }
+                    }
+                    
+                    // 检查是否有结束标记
+                    if (openaiParsed.choices?.[0]?.finish_reason) {
+                      console.log('检测到结束标记:', openaiParsed.choices[0].finish_reason)
+                      streamFinished = true
+                      break
+                    }
+                    
+                    // 检查是否有错误信息
+                    if (openaiParsed.error) {
+                      console.error('API返回错误:', openaiParsed.error)
+                      throw new Error(`API错误: ${openaiParsed.error.message || '未知错误'}`)
+                    }
+                  } catch (e) {
+                    console.log('解析OpenAI数据失败，原始数据长度:', data.length, '错误:', e.message)
+                    // 继续处理其他数据，不中断流式处理
                   }
                 }
                 
@@ -454,8 +429,7 @@ class APIService {
                   throw new Error(`API错误: ${parsed.error.message || '未知错误'}`)
                 }
               } catch (e) {
-                console.log('解析数据失败，原始数据长度:', data.length, '错误:', e.message)
-                // 如果是JSON解析错误，继续处理其他数据
+                console.log('解析数据失败，原始数据长度:', trimmedLine.length, '错误:', e.message)
                 // 如果是API错误，则抛出异常
                 if (e.message.startsWith('API错误:')) {
                   throw e
@@ -1061,54 +1035,51 @@ ${content}
   // AI 批量生成地形（流式版本）
   async generateTerrainsStream(config, onChunk = null) {
     const { 
-      terrainType, 
+      count, 
+      types, 
+      size,
       style, 
-      scale, 
-      customRequirement,
-      includeDetails 
+      customRequirement 
     } = config
 
-    const typeInfo = this.getTerrainTypeInfo(terrainType)
-    const styleInfo = this.getStyleInfo(style)
-    const scaleInfo = this.getScaleInfo(scale)
-
-    let detailsRequirement = ''
-    if (includeDetails.includes('hierarchy')) {
-      detailsRequirement += '\n- 层级关系（地形内部的行政或地理层级）'
+    // 构建地形类型描述
+    const typeMap = {
+      village: '村庄',
+      town: '城镇',
+      city: '城市',
+      country: '国家',
+      continent: '大陆',
+      natural: '自然地形'
     }
-    if (includeDetails.includes('biography')) {
-      detailsRequirement += '\n- 传记历史（创建历史、重要事件、发展历程）'
+    const typeInfo = types.map(type => typeMap[type] || type).join('、')
+    const styleInfo = style === 'eastern' ? '东方风格' : '西方风格'
+    
+    // 构建地形大小描述
+    const sizeMap = {
+      small: '小型',
+      medium: '中型',
+      large: '大型',
+      huge: '超大型'
     }
-    if (includeDetails.includes('economy')) {
-      detailsRequirement += '\n- 经济产业（主要产业、特产、贸易）'
-    }
-    if (includeDetails.includes('culture')) {
-      detailsRequirement += '\n- 文化特色（风俗习惯、节日庆典）'
-    }
-    if (includeDetails.includes('neighbors')) {
-      detailsRequirement += '\n- 相邻地形（周围的其他地形及其距离）'
-    }
-    if (includeDetails.includes('landmarks')) {
-      detailsRequirement += '\n- 地标建筑（著名建筑、景点）'
-    }
+    const sizeInfo = sizeMap[size] || '中型'
 
     const customInfo = customRequirement ? `\n特殊要求：${customRequirement}` : ''
 
-    const prompt = `请根据以下要求生成${config.count}个${typeInfo}类型的小说地形设定：
+    const prompt = `请根据以下要求生成${count}个${typeInfo}类型的小说地形设定：
 
 生成要求：
-1. 建筑风格：${styleInfo}${customInfo}
-2. 地形规模：${scaleInfo}
-3. 必须包含以下详细信息：${detailsRequirement}
+1. 建筑风格：${styleInfo}
+2. 地形大小：${sizeInfo}
+3. 命名规则：${style === 'eastern' ? '使用东方风格的中文名称（如：樱花村、月光城、龙脉山）' : '使用西方风格的中文名称（如：翡翠村、星辰城、龙脊山）'}${customInfo}
 
 每个地形请以 JSON 格式返回，包含以下字段：
 {
-  "name": "地形名称（要有特色，符合风格和类型）",
-  "type": "地形类型（${terrainType}）",
+  "name": "地形名称（要有特色，符合风格和类型，使用中文显示）",
+  "type": "地形类型（从village、town、city、country、continent、natural中选择）",
   "style": "建筑风格（${style}）",
-  "scale": "规模（${scale}）",
+  "scale": "地形大小（从small、medium、large、huge中选择，默认为${size}）",
   "worldPosition": "在世界中的地理位置（自动生成，要详细描述）",
-  "hierarchy": "层级关系字符串",
+  "hierarchy": "层级关系字符串（如：隶属于月光领 → 银松森林 → 洛丹伦王国）",
   "description": "详细描述（200-300 字）",
   "biography": "传记历史",
   "economy": "经济产业描述",
@@ -1124,11 +1095,13 @@ ${content}
 3. 确保 JSON 格式完全正确，没有语法错误
 4. 每个字段名必须与上述要求完全一致，不要使用其他字段名
 5. 格式严格为：[{},{}]
+6. 地形名称必须使用中文显示，${style === 'eastern' ? '东方风格名称要体现东方文化特色（如：樱花、月光、龙脉等）' : '西方风格名称要体现西方文化特色（如：翡翠、星辰、龙脊等）'}
 
 错误示例（不要这样做）：
 - 包含任何文字说明
 - 使用错误的字段名
 - 格式不是标准 JSON
+- 地形名称使用英文或其他语言
 
 正确示例（请这样做）：
 [
@@ -1153,7 +1126,7 @@ ${content}
 
     try {
       // 使用流式生成
-      const response = await this.generateTextStream(prompt, {}, onChunk)
+      const response = await this.generateTextStream(prompt, { model: this.config.selectedModel }, onChunk)
       console.log('流式生成完成，原始响应:', response)
       
       // 尝试从响应中提取 JSON
@@ -1243,6 +1216,161 @@ ${content}
       'huge': '超大型（巨型都市、山脉群等，极其庞大）'
     }
     return scales[scale] || '中等规模'
+  }
+
+  // AI 批量生成种族（流式版本）
+  async generateRacesStream(config, onChunk = null) {
+    const { types, style, customRequirement } = config
+    const count = config.count || 5
+    
+    // 构建种族类型描述
+    const typeMap = {
+      human: '人类',
+      elf: '精灵',
+      dwarf: '矮人',
+      orc: '兽人',
+      other: '其他种族'
+    }
+    const typeInfo = types.map(type => typeMap[type] || type).join('、')
+    
+    // 构建风格描述
+    const styleMap = {
+      eastern: '东方风格（如中国古代风格，名字使用中文）',
+      western: '西方风格（如欧洲中世纪风格，名字使用西方风格）',
+      fantasy: '奇幻风格（融合东西方元素）'
+    }
+    const styleInfo = styleMap[style] || styleMap.eastern
+    
+    const prompt = `请根据以下要求生成${count}个${typeInfo}类型的小说种族设定：
+
+要求：
+1. 每个种族必须包含：
+   - name: 种族名称（符合${styleInfo}）
+   - type: 种族类型（human/elf/dwarf/orc/dragon/other）
+   - description: 详细描述
+   - appearance: 外貌特征
+   - culture: 文化传统
+   - socialStructure: 社会结构
+   - abilities: 特殊能力
+   - history: 历史背景
+
+2. 输出格式必须是JSON数组，每个元素是一个种族对象
+3. 确保生成的种族设定丰富、有特色，适合小说创作
+4. ${customRequirement || '无特殊要求'}
+
+请直接输出JSON格式，不要包含其他文字。`
+    
+    try {
+      const response = await this.generateTextStream(prompt, { model: this.config.selectedModel }, onChunk)
+      
+      // 清理响应，确保是有效的JSON
+      let cleanedResponse = response
+      // 移除开头可能的非JSON内容
+      const jsonStart = cleanedResponse.indexOf('[')
+      if (jsonStart !== -1) {
+        cleanedResponse = cleanedResponse.substring(jsonStart)
+      }
+      // 移除结尾可能的非JSON内容
+      const jsonEnd = cleanedResponse.lastIndexOf(']')
+      if (jsonEnd !== -1) {
+        cleanedResponse = cleanedResponse.substring(0, jsonEnd + 1)
+      }
+      
+      const races = JSON.parse(cleanedResponse)
+      
+      // 确保返回的是数组
+      if (!Array.isArray(races)) {
+        throw new Error('AI返回的数据不是数组格式')
+      }
+      
+      // 清理和验证种族数据
+      const cleanedRaces = races.map(race => ({
+        name: race.name || '',
+        type: race.type || 'human',
+        description: race.description || '',
+        appearance: race.appearance || '',
+        culture: race.culture || '',
+        socialStructure: race.socialStructure || '',
+        abilities: race.abilities || '',
+        history: race.history || ''
+      }))
+      
+      return cleanedRaces
+    } catch (error) {
+      console.error('AI 流式生成种族失败，解析错误:', error)
+      throw new Error('AI 返回的数据格式不正确，无法解析为 JSON。请重试或检查 API 配置。')
+    }
+  }
+
+  // AI 批量生成物品（流式版本）
+  async generateItemsStream(config, onChunk = null) {
+    const { levels, style, customRequirement } = config
+    const count = config.count || 5
+    
+    // 构建物品等级描述
+    const levelInfo = levels.map(level => `${level}级`).join('、')
+    
+    // 构建风格描述
+    const styleMap = {
+      eastern: '东方风格（如中国古代风格，名字使用中文）',
+      western: '西方风格（如欧洲中世纪风格，名字使用西方风格）',
+      fantasy: '奇幻风格（融合东西方元素）'
+    }
+    const styleInfo = styleMap[style] || styleMap.eastern
+    
+    const prompt = `请根据以下要求生成${count}个${levelInfo}级别的小说物品设定：
+
+要求：
+1. 每个物品必须包含：
+   - name: 物品名称（符合${styleInfo}）
+   - level: 物品等级（1-5）
+   - description: 详细描述
+   - attributes: 属性信息（如效果、功能等）
+   - biography: 物品传记（仅5级物品需要）
+
+2. 输出格式必须是JSON数组，每个元素是一个物品对象
+3. 确保生成的物品设定丰富、有特色，适合小说创作
+4. ${customRequirement || '无特殊要求'}
+
+请直接输出JSON格式，不要包含其他文字。`
+    
+    try {
+      const response = await this.generateTextStream(prompt, { model: this.config.selectedModel }, onChunk)
+      
+      // 清理响应，确保是有效的JSON
+      let cleanedResponse = response
+      // 移除开头可能的非JSON内容
+      const jsonStart = cleanedResponse.indexOf('[')
+      if (jsonStart !== -1) {
+        cleanedResponse = cleanedResponse.substring(jsonStart)
+      }
+      // 移除结尾可能的非JSON内容
+      const jsonEnd = cleanedResponse.lastIndexOf(']')
+      if (jsonEnd !== -1) {
+        cleanedResponse = cleanedResponse.substring(0, jsonEnd + 1)
+      }
+      
+      const items = JSON.parse(cleanedResponse)
+      
+      // 确保返回的是数组
+      if (!Array.isArray(items)) {
+        throw new Error('AI返回的数据不是数组格式')
+      }
+      
+      // 清理和验证物品数据
+      const cleanedItems = items.map(item => ({
+        name: item.name || '',
+        level: item.level || '1',
+        description: item.description || '',
+        attributes: item.attributes || '',
+        biography: item.biography || ''
+      }))
+      
+      return cleanedItems
+    } catch (error) {
+      console.error('AI 流式生成物品失败，解析错误:', error)
+      throw new Error('AI 返回的数据格式不正确，无法解析为 JSON。请重试或检查 API 配置。')
+    }
   }
 }
 

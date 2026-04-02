@@ -26,30 +26,15 @@ export const useNovelStore = defineStore('novel', () => {
   const characters = ref([])
   const worldSettings = ref([])
   
-  // API 配置 - 分离官方和自定义配置
-  const officialApiConfig = ref({
-    apiKey: '',
-    baseURL: 'https://ai.91hub.vip/v1',
-    selectedModel: 'claude-4-sonnet',
-    maxTokens: null,
-    unlimitedTokens: true,
-    temperature: 0.7
-  })
-  
+  // API 配置 - 仅本地ollama配置
   const customApiConfig = ref({
     baseURL: 'http://localhost:11434/api',
     selectedModel: 'llama3.2',
-    maxTokens: null,
-    unlimitedTokens: true,
     temperature: 0.7
   })
 
   // 初始化时默认使用本地ollama配置
   onMounted(() => {
-    // 强制使用自定义配置（本地ollama）
-    localStorage.setItem('apiConfigType', 'custom')
-    currentConfigType.value = 'custom'
-    
     // 检查是否有自定义配置
     const savedCustomConfig = localStorage.getItem('customApiConfig')
     if (!savedCustomConfig) {
@@ -61,63 +46,25 @@ export const useNovelStore = defineStore('novel', () => {
       }
       localStorage.setItem('customApiConfig', JSON.stringify(defaultConfig))
       customApiConfig.value = defaultConfig
+    } else {
+      // 加载已保存的配置
+      const saved = JSON.parse(savedCustomConfig)
+      customApiConfig.value = { ...customApiConfig.value, ...saved }
     }
     
     // 更新apiService配置
-    const currentConfig = getCurrentApiConfig()
-    apiService.updateConfig(currentConfig)
+    apiService.updateConfig(customApiConfig.value)
     isApiConfigured.value = true
     
-    console.log('初始化完成 - 当前配置类型:', currentConfigType.value)
-    console.log('初始化完成 - 当前API配置:', currentConfig)
+    console.log('初始化完成 - 当前API配置:', customApiConfig.value)
   })
   
-  const currentConfigType = ref('custom') // 默认使用自定义配置（本地ollama）
   const isApiConfigured = ref(true) // 本地ollama不需要API密钥，默认已配置
   
-  // 获取当前活动的API配置
+  // 获取当前API配置
   const getCurrentApiConfig = () => {
-    return currentConfigType.value === 'official' ? officialApiConfig.value : customApiConfig.value
+    return customApiConfig.value
   }
-  
-  // 初始化时检查API配置
-  const initializeApiConfig = () => {
-    try {
-      // 加载配置类型
-      const savedType = localStorage.getItem('apiConfigType') || 'official'
-      currentConfigType.value = savedType
-      
-      // 加载官方配置
-      const savedOfficial = localStorage.getItem('officialApiConfig')
-      if (savedOfficial) {
-        const config = JSON.parse(savedOfficial)
-        // 官方配置只允许覆盖API密钥等参数，baseURL始终保持固定
-        officialApiConfig.value = {
-          ...officialApiConfig.value,
-          ...config,
-          baseURL: 'https://ai.91hub.vip/v1' // 强制保持官方地址
-        }
-      }
-      
-      // 加载自定义配置
-      const savedCustom = localStorage.getItem('customApiConfig')
-      if (savedCustom) {
-        const config = JSON.parse(savedCustom)
-        customApiConfig.value = { ...customApiConfig.value, ...config }
-      }
-      
-      // 使用当前配置类型的配置
-      const currentConfig = getCurrentApiConfig()
-      isApiConfigured.value = true // 本地ollama不需要API密钥
-      apiService.updateConfig(currentConfig)
-      
-    } catch (error) {
-      console.error('初始化API配置失败:', error)
-    }
-  }
-  
-  // 立即执行初始化
-  initializeApiConfig()
   
   // 摘要功能
   const articleSummary = ref('')
@@ -341,38 +288,14 @@ export const useNovelStore = defineStore('novel', () => {
   }
 
   // API配置方法
-  const updateApiConfig = (config, configType = null) => {
-    // 如果没有指定类型，使用当前配置类型
-    const targetType = configType || currentConfigType.value
-    
-    if (targetType === 'official') {
-      // 官方配置：强制保持官方API地址
-      officialApiConfig.value = { 
-        ...officialApiConfig.value, 
-        ...config,
-        baseURL: 'https://ai.91hub.vip/v1'
-      }
-    } else {
-      // 自定义配置：允许所有参数更新
-      customApiConfig.value = { ...customApiConfig.value, ...config }
-    }
-    
-    // 更新apiService配置为当前活动配置
-    const currentConfig = getCurrentApiConfig()
-    apiService.updateConfig(currentConfig)
-    // 本地模型只需检查 API 地址，不需要密钥
-    isApiConfigured.value = !!(currentConfig.baseURL && currentConfig.baseURL.trim() !== '')
-  }
-  
-  // 切换配置类型
-  const switchConfigType = (type) => {
-    currentConfigType.value = type
-    localStorage.setItem('apiConfigType', type)
+  const updateApiConfig = (config) => {
+    // 只更新本地ollama配置
+    customApiConfig.value = { ...customApiConfig.value, ...config }
     
     // 更新apiService配置
-    const currentConfig = getCurrentApiConfig()
-    apiService.updateConfig(currentConfig)
-    isApiConfigured.value = true // 本地ollama不需要API密钥
+    apiService.updateConfig(customApiConfig.value)
+    // 本地模型只需检查 API 地址，不需要密钥
+    isApiConfigured.value = !!(customApiConfig.value.baseURL && customApiConfig.value.baseURL.trim() !== '')
   }
 
   const validateApiKey = async () => {
@@ -541,7 +464,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 基于语料库生成个性化内容
   const generatePersonalizedContent = async (prompt) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     if (corpus.value.length === 0) {
@@ -564,7 +487,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 使用真实API生成通用内容
   const generateContentWithAPI = async (keywords, template, outline, wordLimit) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     try {
@@ -580,7 +503,7 @@ export const useNovelStore = defineStore('novel', () => {
   // 流式生成内容
   const generateContentWithAPIStream = async (keywords, template, outline, wordLimit, onChunk = null) => {
     if (!isApiConfigured.value) {
-      throw new Error('请先配置API密钥')
+      throw new Error('请先配置API地址')
     }
     
     setGenerating(true)
@@ -803,9 +726,7 @@ export const useNovelStore = defineStore('novel', () => {
     characters,
     worldSettings,
     articleStats,
-    officialApiConfig,
     customApiConfig,
-    currentConfigType,
     isApiConfigured,
     articleSummary,
     isGeneratingSummary,
@@ -847,7 +768,6 @@ export const useNovelStore = defineStore('novel', () => {
     
     // API相关方法
     updateApiConfig,
-    switchConfigType,
     getCurrentApiConfig,
     validateApiKey,
     generateOutlineWithAPI,

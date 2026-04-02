@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试localStorage</title>
+</head>
+<body>
+    <h1>测试localStorage配置</h1>
+    <div id="result"></div>
+    
+    <script>
+        // 检查localStorage中的配置
+        const customApiConfig = localStorage.getItem('customApiConfig');
+        const resultDiv = document.getElementById('result');
+        
+        if (customApiConfig) {
+            try {
+                const config = JSON.parse(customApiConfig);
+                resultDiv.innerHTML = `
+                    <h2>当前配置:</h2>
+                    <pre>${JSON.stringify(config, null, 2)}</pre>
+                    <button onclick="clearConfig()">清除配置</button>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h2>配置解析错误:</h2>
+                    <p>${error.message}</p>
+                    <button onclick="clearConfig()">清除配置</button>
+                `;
+            }
+        } else {
+            resultDiv.innerHTML = '<h2>没有找到customApiConfig</h2>';
+        }
+        
+        function clearConfig() {
+            localStorage.removeItem('customApiConfig');
+            localStorage.removeItem('apiConfig');
+            alert('配置已清除');
+            location.reload();
+        }
+    </script>
+</body>
+</html>
